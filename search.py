@@ -4,19 +4,19 @@ beam_size = 5
 MAX_DECODING_STEPS = 12
 EPS = 1e-8
 
+# Beam 搜索类
 class Beam(object):
   def __init__(self, word2idx, h_t, c_t):
     self.word2idx = word2idx
-    # (beam_size, t) after t time steps
+    # (beam_size, t) 1步以后的tokens
     self.tokens = torch.LongTensor(beam_size, 1).fill_(self.word2idx['<SOS>'])
-    # (beam_size, 1), Initial score of beams = -30
+    # (beam_size, 1) 初始化的分数= -30
     self.scores = torch.FloatTensor(beam_size, 1).fill_(-30)
 
     self.tokens = use_cuda(self.tokens)
     self.scores = use_cuda(self.scores)
 
-    # At time step t = 0, all beams should extend from a single beam, 
-    # so giving high initial score to 1st beam
+    # 在第一步，所有的beam都是从一个beam开始的，所以给第一个beam初始化得分
     self.scores[0][0] = 0
     self.h_t = h_t.unsqueeze(0).repeat(beam_size, 1)
     self.c_t = c_t.unsqueeze(0).repeat(beam_size, 1)
@@ -24,6 +24,7 @@ class Beam(object):
     self.dec_out = None
     self.done = False
 
+  # 得到当前状态
   def get_current_state(self):
     tokens = self.tokens[:,-1].clone()
     for i in range(len(tokens)):
@@ -31,7 +32,7 @@ class Beam(object):
         tokens[i] = self.word2idx['<UNK>']
     return tokens
 
-
+  # 更新分数
   def advance(self, prob_dist, h_t, c_t, et_sum, dec_out):
     '''
     :param prob_dist: (beam, n_extended_vocab)
@@ -42,11 +43,11 @@ class Beam(object):
     '''
     n_extended_vocab = prob_dist.size(1)
     log_probs = torch.log(prob_dist + EPS)
-    # maintain for each beam overall score so far
+    # 维护每个beam的总得分
     scores = log_probs + self.scores
-    # extract the top beam candidates out of beam*n_extended_vocab candidates, (beam*n_extended_vocab, 1)       
+    # 取出beam_size个最大的得分   
     scores_t = scores.view(-1,1)
-    # will be sorted in descending order of scores                           
+    # 按照得分从大到小排序                           
     best_scores, best_scores_id = torch.topk(input=scores_t, k=beam_size, dim=0)
     self.scores = best_scores
     beams_order = best_scores_id.squeeze(1) // n_extended_vocab
@@ -60,12 +61,12 @@ class Beam(object):
     self.tokens = self.tokens[beams_order]
     self.tokens = torch.cat([self.tokens, best_words], dim=1)
 
-    #End condition is when top-of-beam is EOS.
+    # 如果当前beam中最后一个token是EOS，则结束
     if best_words[0][0] == self.word2idx['<EOS>']:
       self.done = True
 
   def get_best(self):
-    # Since beams are always in sorted (descending) order, 1st beam is the best beam
+    # 因为beam是按照得分从大到小排序的，所以第一个beam是最好的beam
     best_token = self.tokens[0].cpu().numpy().tolist()
     try:
       end_idx = best_token.index(self.word2idx['<EOS>'])
@@ -85,14 +86,14 @@ def beam_search(h_t, c_t, enc_out, dec_tar, enc_padding_mask, enc_ext_vocab,
 
   batch_size = len(h_t)
   beam_idx = torch.LongTensor(list(range(batch_size)))
-  # For each example in batch, create Beam object
+  # 给每个batch中的每个example创建一个beam对象
   beams = [Beam(word2idx, h_t[i], c_t[i]) for i in range(batch_size)]
-  # Index of beams that are active, i.e: didn't generate [STOP] yet
+  # 索引活跃的beam，即没有生成[STOP]
   n_rem = batch_size
   et_sum = None
   dec_out = None
 
-  # limit is set to max length steps for beam search decoding
+  # 设置限制为beam search的最大长度
   max_dec_steps = dec_tar.shape[1] if evaluation == 'val' else MAX_DECODING_STEPS
   for t in range(max_dec_steps):
     inputs = torch.stack(
@@ -119,7 +120,7 @@ def beam_search(h_t, c_t, enc_out, dec_tar, enc_padding_mask, enc_ext_vocab,
       ).contiguous().view(-1, t, hidden_dim)
 
 
-    # following steps make a bigger batch size by multiplying beam-width with (remaining) batch size
+    # 将beam_size和batch_size相乘，得到一个大的batch_size
     enc_out_beam = enc_out[beam_idx].view(n_rem, -1).repeat(1, beam_size).view(-1, enc_out.size(1), enc_out.size(2))
     enc_pad_mask_beam = enc_padding_mask[beam_idx].repeat(1, beam_size).view(-1, enc_padding_mask.size(1))
 
@@ -133,7 +134,7 @@ def beam_search(h_t, c_t, enc_out, dec_tar, enc_padding_mask, enc_ext_vocab,
                                                  et_sum, enc_pad_mask_beam, enc_ext_vocab_beam, 
                                                  max_zeros_ext_vocab_beam, inputs)
 
-    # following steps separate the (remaining) batch size dimension from beam width dimension
+    # 接下来的步骤将分离（剩余）批量大小维度和beam宽度维度
     p_y = p_y.view(n_rem, beam_size, -1)
     dec_h = dec_h.view(n_rem, beam_size, -1)
     dec_c = dec_c.view(n_rem, beam_size, -1)
@@ -146,12 +147,12 @@ def beam_search(h_t, c_t, enc_out, dec_tar, enc_padding_mask, enc_ext_vocab,
       # rem, beam_size, t, hidden_dim
       dec_out = dec_out.view(n_rem, beam_size, -1, hidden_dim)   
 
-    # For all the active beams, perform beam search
-    # indices of active beams after beam search
+    # 对于每个活跃的beam，执行beam search
+    # 在beam search之后，活跃的beam的索引
     active = []         
 
     for i in range(n_rem):
-      # here beam means batch
+      # 这里beam平均batch
       b = beam_idx[i].item()
       beam = beams[b]
       if beam.done:

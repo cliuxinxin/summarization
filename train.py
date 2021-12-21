@@ -138,7 +138,7 @@ class Summarization(object):
       inputs = is_oov * self.word2idx['<UNK>'] + (1 - is_oov) * inputs
       i += 1
 
-    # get sum of losses for all steps per batch
+    # 计算batch所有step的loss的和
     total_loss_batchwise = torch.sum(torch.stack(iter_losses, dim=1), 1)
     avg_loss_batchwise = total_loss_batchwise / dec_inp_len
     avg_loss = torch.mean(avg_loss_batchwise)
@@ -165,7 +165,7 @@ class Summarization(object):
     num_epochs = 5
     gamma = 0.95
 
-    # training loop
+    # 训练
     train_losses = []
     train_rl_losses = []
     train_rewards = []
@@ -241,8 +241,8 @@ class Summarization(object):
       print('Epoch %d, Loss: %.3f, RL Loss: %.3f, Sampled Reward: %.3f, Greedy Reward: %.3f' % (epoch+1, train_loss, train_rl_loss, train_reward, train_g_reward))
 
   def eval(self, data, eval_df, load_path, evaluation='val', search='BEAM', print_samples=False):
-    # evaluation can be val or test
-    # search can be BEAM, GREEDY, RANDOM
+    # 评估可以是val或者test
+    # search可以是BEAM, GREEDY, RANDOM
 
     self.model = use_cuda(self.model)
     _ = self.load_weights(load_path)
@@ -294,7 +294,7 @@ class Summarization(object):
           decoded_words = " ".join(decoded_words)
         decoded_sentences.append(decoded_words)
 
-      # update the tqdm progress bar
+      # 更新进度条
       pbar.update(1)
 
     if evaluation == 'val':

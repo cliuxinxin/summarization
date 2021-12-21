@@ -2,6 +2,7 @@ from util import read_data, split_data, get_vocab, get_word2idx_idx2word, prepar
 from train import Summarization
 import sys
 
+# 预处理数据
 def preprocess_data(abstracts_path, titles_path):
 
   print('Reading data ...')
@@ -13,6 +14,7 @@ def preprocess_data(abstracts_path, titles_path):
   word2idx, idx2word = get_word2idx_idx2word(vocab)
   return train_df, val_df, word2idx, idx2word
 
+# 主要入口
 def main():
   choice = sys.argv[1]
   load_path = None

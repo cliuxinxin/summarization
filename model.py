@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
 from allennlp.nn.util import sort_batch_by_length
 
+# 编码器
 class Encoder(nn.Module):
   def __init__(self, emb_dim, hidden_dim):
     super(Encoder, self).__init__()
@@ -25,6 +26,7 @@ class Encoder(nn.Module):
     c_n = sorted_c_n[input_unsort_indices]
     return output, h_n, c_n
 
+# 解码器
 class Decoder(nn.Module):
   def __init__(self, emb_dim, hidden_dim, vocab_size):
     super(Decoder, self).__init__()
@@ -80,7 +82,7 @@ class Decoder(nn.Module):
 
     return p_y, h_next, c_next, et_sum, dec_out
 
-
+# 模型
 class Model(nn.Module):
   def __init__(self, emb_dim, hidden_dim, embedding_matrix, vocab_size):
     super(Model, self).__init__()

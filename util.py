@@ -7,6 +7,8 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import Dataset
 
+
+# 是否使用cuda
 def use_cuda(obj):
 
   if torch.cuda.is_available():
@@ -14,6 +16,7 @@ def use_cuda(obj):
 
   return obj
 
+# 读取数据，返回的df第一列是abstract，第二列是title
 def read_data(abstract_path, title_path):
   """
   :param abstract_path: path to abstract pickle file
@@ -29,6 +32,7 @@ def read_data(abstract_path, title_path):
   df = pd.DataFrame({'abstract': abstracts, 'title': titles})
   return df
 
+# 划分训练集和测试集,默认比例是0.1 
 def split_data(df, split=0.1):
   """
   :param df: original dataframe containing data
@@ -41,6 +45,7 @@ def split_data(df, split=0.1):
 
   return train_df, val_df
 
+# 从训练集中提取出vocab
 def get_vocab(train_df, size=50000):
     """
     :param train_df: train dataframe
@@ -62,6 +67,7 @@ def get_vocab(train_df, size=50000):
     print("vocab size: ", len(vocab))
     return vocab
 
+# 得到vocab转换的矩阵
 def get_word2idx_idx2word(vocab):
     """
     :param vocab: a set of strings: vocabulary
@@ -77,6 +83,7 @@ def get_word2idx_idx2word(vocab):
         idx2word[assigned_index] = word
     return word2idx, idx2word
 
+# 将原文转换成id
 def source2id(source_words, word2idx):
   """
   :param source_words: list of abstract words
@@ -98,6 +105,7 @@ def source2id(source_words, word2idx):
 
   return source_ids, oovs
 
+# 将标签转换成id
 def target2id(target_words, source_oovs, word2idx):
   """
   :param target_words: list of title words
@@ -119,6 +127,7 @@ def target2id(target_words, source_oovs, word2idx):
 
   return target_ids
 
+# 讲数据转换成id
 def prepare_input_data(data, word2idx):
   """
   :param data: dataframe containing abstracts and titles
@@ -210,6 +219,7 @@ def ids2target(ids, source_oovs, idx2word):
 
   return words
 
+# 获取数据lines
 def get_num_lines(file_path):
   """
   :param file_path: path to file of which to count number of lines
@@ -222,6 +232,7 @@ def get_num_lines(file_path):
     lines += 1
   return lines
 
+# 读取glove词向量
 def get_embedding_matrix(word2idx, idx2word, glove_path, name, normalization=False):
   """
   :param word2idx: dict mapping word to int
@@ -237,7 +248,7 @@ def get_embedding_matrix(word2idx, idx2word, glove_path, name, normalization=Fal
       glove_vectors = pickle.load(f)
   except:
     glove_vectors = {}
-    # Load the GloVe vectors into a dictionary, keeping only words in vocab
+    # 读取GloVe词向量, 只保留在词汇表中的词
     with open(glove_path) as glove_file:
       for line in tqdm(glove_file, total=get_num_lines(glove_path)):
         split_line = line.rstrip().split()
@@ -256,19 +267,18 @@ def get_embedding_matrix(word2idx, idx2word, glove_path, name, normalization=Fal
 
   print("Number of pre-trained word vectors loaded: ", len(glove_vectors))
 
-  # Calculate mean and stdev of embeddings
+  # 计算词向量的均值和标准差
   all_embeddings = np.array(list(glove_vectors.values()))
   embeddings_mean = float(np.mean(all_embeddings))
   embeddings_stdev = float(np.std(all_embeddings))
   print("Embeddings mean: ", embeddings_mean)
   print("Embeddings stdev: ", embeddings_stdev)
 
-  # Randomly initialize an embedding matrix of (vocab_size, embedding_dim) shape
-  # with a similar distribution as the pretrained embeddings for words in vocab.
+  # 随机初始化一个(词汇表大小，词向量维度)的embedding矩阵
+  # 和预训练的词向量的分布相似
   vocab_size = len(word2idx)
   embedding_matrix = torch.FloatTensor(vocab_size, embedding_dim).normal_(embeddings_mean, embeddings_stdev)
-  # Go through the embedding matrix and replace the random vector with a
-  # pretrained one if available. Start iteration at 2 since 0, 1 are PAD, UNK
+  # 将随机初始化的embedding矩阵中的词向量替换为预训练的词向量，从2开始，0,1是PAD,UNK
   for i in range(2, vocab_size):
     word = idx2word[i]
     if word in glove_vectors:
@@ -282,7 +292,7 @@ def get_embedding_matrix(word2idx, idx2word, glove_path, name, normalization=Fal
   embeddings.weight = nn.Parameter(embedding_matrix)
   return embeddings
 
-# Make sure to subclass torch.utils.data.Dataset
+# 保证继承torch.utils.data.Dataset
 class Summarizer(Dataset):
   def __init__(self, encoder_inputs, encoder_ext_vocabs, decoder_inputs, decoder_targets, source_oovs, target_sentences):
     """
@@ -384,9 +394,9 @@ class Summarizer(Dataset):
       if len(oov) > max_oov_len:
         max_oov_len = len(oov)
 
-    # Iterate over each example in the batch
+    # batch中的每一个example
     for enc_inp, enc_ext_vocab, dec_inp, dec_tar, oov, target_sen in batch:
-      # Unpack the example (returned from __getitem__)
+      # 打开example，从__getitem__中获得
       enc_len = len(enc_inp)
       dec_len = len(dec_inp)
       all_oovs.append(oov)
@@ -394,25 +404,25 @@ class Summarizer(Dataset):
       batch_target_sens.append(target_sen)
       batch_enc_inp_lengths.append(enc_len)
       batch_dec_inp_lengths.append(dec_len)
-      # Calculate the amount of padding for both enc and dec
+      # 计算encoder和decoder的padding的总数
       amount_to_pad_enc = max_enc_inp_len - enc_len
       amount_to_pad_dec = max_dec_inp_len - dec_len
 
       enc_padding_mask = [1]*enc_len + [0]*amount_to_pad_enc
       batch_enc_padding_masks.append(enc_padding_mask)
 
-      # append padding to corresponding variables
+      # 将padding加入到对应的变量中
       padded_enc_inp = enc_inp + [0]*amount_to_pad_enc
       padded_dec_inp = dec_inp + [0]*amount_to_pad_dec
       padded_enc_ext_vocab = enc_ext_vocab + [0]*amount_to_pad_enc
       padded_dec_tar = dec_tar + [0]*amount_to_pad_dec
-      # Add the padded example to our batch
+      # 将padding加入到对应的batch中
       batch_padded_enc_inp.append(padded_enc_inp)
       batch_padded_dec_inp.append(padded_dec_inp)
       batch_padded_enc_ext_vocab.append(padded_enc_ext_vocab)
       batch_padded_dec_tar.append(padded_dec_tar)
 
-    # Stack the list of LongTensors into a single LongTensor
+    # 将一个list的LongTensor堆叠成一个LongTensor
     return (use_cuda(torch.LongTensor(batch_padded_enc_inp)),
             use_cuda(torch.LongTensor(batch_padded_dec_inp)),
             use_cuda(torch.LongTensor(batch_padded_enc_ext_vocab)),
