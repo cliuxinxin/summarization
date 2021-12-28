@@ -7,7 +7,8 @@
 * Make two folders with name ```data``` and ```models``` in the current directory.
 * Place ```abstracts.pkl``` and ```titles.pkl```, which are just list of corresponding sentences stored in pickle format, in **data** folder.
 ** download CNNdata from https://s3.amazonaws.com/opennmt-models/Summary/cnndm.tar.gz
-* Place glove embeddings in the **data** folder. https://apache-mxnet.s3.cn-north-1.amazonaws.com.cn/gluon/embeddings/glove/glove.twitter.27B.zip
+* Place glove embeddings in the **data** folder. https://apache-mxnet.s3.cn-north-1.amazonaws.com.cn/gluon/embeddings/glove/glove.twitter.27B.zip name glove_vectors.txt
+* run preprocess to generate abstracts.pkl and titles.pkl
 * Checkpoints will be saved in the **models** folder.
 
 ## Results

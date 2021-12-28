@@ -6,7 +6,19 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import Dataset
+import os
 
+# 最新存储模型path
+def get_load_path(model_path):
+  """
+  :param model_path: path to model
+  :returns: path to latest saved model
+  """
+  files = os.listdir(model_path)
+  files = [f for f in files if f.endswith(".tar")]
+  # 按文件名倒序排列
+  files.sort(reverse=True)
+  return os.path.join(model_path, files[0])
 
 # 是否使用cuda
 def use_cuda(obj):
@@ -242,7 +254,7 @@ def get_embedding_matrix(word2idx, idx2word, glove_path, name, normalization=Fal
   :param normalization: whether to normalize the embeddings to norm of one
   :return: an embedding matrix: a nn.Embeddings
   """
-  embedding_dim = 300
+  embedding_dim = 200
   try:
     with open('./data/embeddings_' + name + '.pkl', 'rb') as f:
       glove_vectors = pickle.load(f)

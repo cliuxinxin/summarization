@@ -30,6 +30,7 @@ class Summarization(object):
     self.model =  Model(emb_dim=emb_dim, hidden_dim=hidden_dim, embedding_matrix=emb_matrix, vocab_size=len(self.word2idx))
     self.optimizer = optim.Adam(self.model.parameters(), lr=0.00002)
 
+  # 读取模型
   def load_weights(self, path):
 
     checkpoint = torch.load(path)
@@ -44,6 +45,7 @@ class Summarization(object):
     print('Model weights loaded.')
     return iteration
 
+  # 保存模型
   def save_weights(self, save_path):
 
     print('Saving checkpoint...')
@@ -78,7 +80,8 @@ class Summarization(object):
       sampled_ids.append(inputs)
       # mask == 1 and inp != EOS => 1 else => 0
       # mask = (mask == 1)*(inputs != word2idx['<EOS>']) == 1
-      mask_t = torch.zeros(len(enc_out)).cuda()                                                
+      mask_t = torch.zeros(len(enc_out))
+      mask_t = use_cuda(mask_t)                                                
       mask_t[mask == 1] = 1
       masks.append(mask_t)
       is_oov = (inputs >= len(self.word2idx)).type(torch.LongTensor)
